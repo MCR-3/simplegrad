@@ -11,20 +11,44 @@ def _node_signature(tensor: Tensor) -> str:
         return f"shape: {tensor.shape} | comp_grad: {tensor.comp_grad}"
 
 
-def _add_graph_vertices(tensor: Tensor, graph):
-    node_attrs = {"shape": "record", "style": "rounded,filled"}
-    if tensor.is_leaf:
-        node_attrs["fillcolor"] = "lightsalmon"
-        node_attrs["fontname"] = "monospace"
-        node_attrs["fontsize"] = "10"
-    else:
-        node_attrs["fillcolor"] = "lightsteelblue"
-        node_attrs["fontname"] = "monospace"
-        node_attrs["fontsize"] = "10"
-    graph.node(tensor._str_id, _node_signature(tensor), **node_attrs)
+def _collect_nodes(tensor: Tensor, visited: set = None) -> list:
+    """Traverse the computation graph and return all tensors reachable from ``tensor``.
+
+    Args:
+        tensor: Root tensor to start traversal from.
+        visited: Set of already-visited tensor ids (used internally for recursion).
+
+    Returns:
+        List of all Tensor objects reachable via ``.prev`` links.
+    """
+    if visited is None:
+        visited = set()
+    if id(tensor) in visited:
+        return []
+    visited.add(id(tensor))
+    result = [tensor]
+    for t in tensor.prev:
+        result.extend(_collect_nodes(t, visited))
+    return result
+
+
+def _render_tensor_node(tensor: Tensor, target) -> None:
+    """Add a tensor node and its operation node to a graphviz graph or subgraph.
+
+    Each non-leaf tensor produces two visual nodes: a record node for the tensor
+    itself and a box node for the operation that produced it, with an edge between
+    them.
+
+    Args:
+        tensor: The tensor to render.
+        target: A ``graphviz.Digraph`` or subgraph context to add nodes into.
+    """
+    node_attrs = {"shape": "record", "style": "rounded,filled", "fontname": "monospace", "fontsize": "10"}
+    node_attrs["fillcolor"] = "lightsalmon" if tensor.is_leaf else "lightsteelblue"
+    target.node(tensor._str_id, _node_signature(tensor), **node_attrs)
     if tensor.oper is not None:
         oper_id = tensor._str_id + tensor.oper
-        graph.node(
+        target.node(
             oper_id,
             tensor.oper,
             shape="box",
@@ -33,20 +57,37 @@ def _add_graph_vertices(tensor: Tensor, graph):
             fontname="monospace",
             fontsize="10",
         )
-        graph.edge(oper_id, tensor._str_id, arrowhead="vee")
-        for t in tensor.prev:
-            _add_graph_vertices(t, graph)
+        target.edge(oper_id, tensor._str_id, arrowhead="vee")
 
 
-def _add_graph_edges(tensor, graph):
+def _add_graph_edges(tensor: Tensor, graph, visited: set = None) -> None:
+    """Add directed edges from input tensors to operation nodes throughout the graph.
+
+    Edges are always added to the root graph so they render correctly across
+    cluster boundaries.
+
+    Args:
+        tensor: Current tensor in the traversal.
+        graph: The root ``graphviz.Digraph`` to add edges into.
+        visited: Set of already-visited tensor ids.
+    """
+    if visited is None:
+        visited = set()
+    if id(tensor) in visited:
+        return
+    visited.add(id(tensor))
     for t in tensor.prev:
         graph.edge(t._str_id, tensor._str_id + tensor.oper, arrowhead="vee")
-    for sc in tensor.prev:
-        _add_graph_edges(sc, graph)
+    for t in tensor.prev:
+        _add_graph_edges(t, graph, visited)
 
 
 def graph(tensor: Tensor, path: str = None):
     """Render the computation graph of a tensor as an SVG diagram.
+
+    Functions decorated with ``@compound_op`` are enclosed in a labelled
+    black-border rectangle. Each distinct call to a compound op gets its own
+    rectangle, so two calls to ``softmax`` produce two separate boxes.
 
     Node colors:
         - Salmon: leaf tensors (inputs / parameters)
@@ -70,8 +111,39 @@ def graph(tensor: Tensor, path: str = None):
         },
     )
     g.strict = True
-    _add_graph_vertices(tensor, graph=g)
-    _add_graph_edges(tensor, graph=g)
+
+    all_tensors = _collect_nodes(tensor)
+
+    clusters: dict[int, tuple[str, list]] = {}
+    ungrouped: list = []
+    for t in all_tensors:
+        if t.group is not None:
+            gname, gid = t.group
+            if gid not in clusters:
+                clusters[gid] = (gname, [])
+            clusters[gid][1].append(t)
+        else:
+            ungrouped.append(t)
+
+    for gid, (gname, tensors) in clusters.items():
+        with g.subgraph(name=f"cluster_{gid}") as c:
+            c.attr(
+                label=gname,
+                labelloc="t",
+                labeljust="l",
+                color="black",
+                style="rounded",
+                fontname="monospace",
+                fontsize="10",
+            )
+            for t in tensors:
+                _render_tensor_node(t, c)
+
+    for t in ungrouped:
+        _render_tensor_node(t, g)
+
+    _add_graph_edges(tensor, g)
+
     if path:
         g.render(filename=path, format="svg", cleanup=True)
     return g

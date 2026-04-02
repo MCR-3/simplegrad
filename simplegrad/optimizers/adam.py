@@ -24,9 +24,7 @@ class Adam(Optimizer):
     """
 
     def __init__(self, model, lr, beta_1=0.9, beta_2=0.999, eps=1e-8):
-        super().__init__()
-        self.model = model
-        self.lr = lr
+        super().__init__(lr, model)
         self.beta_1 = beta_1
         self.beta_2 = beta_2
         self.eps = eps

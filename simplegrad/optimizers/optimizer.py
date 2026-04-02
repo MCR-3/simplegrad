@@ -1,6 +1,7 @@
 """Abstract base class for all optimizers."""
 
 import numpy as np
+from simplegrad.nn import Module
 
 
 class Optimizer:
@@ -9,8 +10,16 @@ class Optimizer:
     Subclasses must implement `step()` to define the parameter update rule.
     """
 
-    def __init__(self):
+    def __init__(self, lr: float, model: Module):
         self.step_count = 0
+
+        if lr is None:
+            raise ValueError("Learning rate (lr) must be provided.")
+        if model is None:
+            raise ValueError("Model must be provided.")
+
+        self.lr = lr
+        self.model = model
 
     def zero_grad(self):
         """Zero gradients for all model parameters."""
@@ -24,3 +33,7 @@ class Optimizer:
     def reset_step_count(self):
         """Reset the internal step counter to zero."""
         self.step_count = 0
+
+    def set_lr(self, new_lr: float):
+        """Set a new learning rate."""
+        self.lr = new_lr

@@ -1,7 +1,7 @@
 """Loss functions: cross-entropy and mean squared error."""
 
 import numpy as np
-from simplegrad.core.tensor import Tensor, _should_compute_grad
+from simplegrad.core.tensor import Tensor, _should_compute_grad, compound_op
 import simplegrad as sg
 from typing import Optional
 
@@ -62,6 +62,7 @@ def _ce_loss_backward(z: Tensor, s: np.ndarray, y: Tensor, out: Tensor) -> None:
         z.grad += (s - y.values) * out.grad
 
 
+@compound_op
 def mse_loss(p: Tensor, y: Tensor, reduction: str = "mean") -> Tensor:
     """Compute mean squared error loss: mean((p - y)^2).
 

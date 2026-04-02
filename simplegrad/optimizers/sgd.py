@@ -28,8 +28,7 @@ class SGD(Optimizer):
         if not isinstance(model, Module):
             raise TypeError(f"model must be a Module")
 
-        self.model = model
-        self.lr = lr
+        super().__init__(lr, model)
         self.momentum = momentum
         self.dampening = dampening
         self.velocities = {name: np.zeros_like(param.values) for name, param in model.parameters().items()}

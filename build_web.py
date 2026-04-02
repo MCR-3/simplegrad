@@ -5,7 +5,6 @@ Run this before installing the Python package to bundle the web app.
 """
 
 import subprocess
-import shutil
 from pathlib import Path
 
 

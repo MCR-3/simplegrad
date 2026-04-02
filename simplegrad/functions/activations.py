@@ -1,7 +1,7 @@
 """Activation functions with autograd support."""
 
 import numpy as np
-from simplegrad.core.tensor import Tensor, _should_compute_grad
+from simplegrad.core.tensor import Tensor, _should_compute_grad, compound_op
 from .math import exp, log
 from .reduction import sum
 
@@ -32,7 +32,7 @@ def _relu_backward(x: Tensor, out: Tensor) -> None:
         x._init_grad_if_needed()
         x.grad = out.grad * np.where(x.values > 0, 1.0, 0.0)
 
-
+@compound_op
 def softmax(x: Tensor, dim: int | None = None) -> Tensor:
     """Apply softmax along the given dimension.
 
