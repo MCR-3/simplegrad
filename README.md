@@ -1,4 +1,4 @@
-![header logo](./assets/header.png)
+![header logo](./docs/images/header.png)
 
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white)
 ![NumPy](https://img.shields.io/badge/numpy-backed-013243?logo=numpy&logoColor=white)
@@ -12,9 +12,23 @@ It's not a toy. It ships a full autograd engine, conv layers, optimizers, schedu
 
 ## Install
 
+The package is not yet published to PyPI. Clone the repo and install in editable mode:
+
 ```bash
-pip install simplegrad
+git clone https://github.com/gri-sha/simplegrad.git
+cd simplegrad
+python -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -e .
 ```
+For CUDA support:
+
+```bash
+pip install -e ".[cuda]"  # CUDA 12.x
+```
+
+For development:
+pip install -e ".[dev,docs,cuda]"
 
 ## Quick start
 
